@@ -9,7 +9,7 @@ description = "Serve a directory of markdown files as a simple website. Designed
 
 [dependencies]
 katex = "0.2"
-pulldown-cmark = "0.6"
+pulldown-cmark = "0.7"
 rocket = "0.4"
 structopt = { version = "0.3", features = [ "paw" ] }
 paw = "1.0"
