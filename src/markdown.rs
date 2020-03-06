@@ -1,13 +1,49 @@
 use maud::{Markup, PreEscaped, Render};
 use pulldown_cmark::{html, CodeBlockKind, CowStr, Event, Options, Parser, Tag};
+use regex::Regex;
 
 /// Renders a block of Markdown using `pulldown-cmark`.
 pub struct Markdown<T: AsRef<str>>(pub T);
 
 impl<T: AsRef<str>> Render for Markdown<T> {
     fn render(&self) -> Markup {
+        // Compile regular expressions to match arXiv and DOI references
+        let new_arxiv = Regex::new(r"^ar[xX]iv:([0-9]{4}[.][0-9]{4,}(v[0-9]+)?)$").unwrap();
+        let old_arxiv = Regex::new(r"^(ar[xX]iv:)?([a-zA-Z.-]+/[0-9]{7}(v[0-9]+)?)$").unwrap();
+        let doi = Regex::new(r"^(doi:)?(10[.][0-9.]+/[0-9a-zA-Z._-]+)$").unwrap();
+
+        let reference_callback = |reference: &str, _normalized: &str| {
+            println!("{}", reference);
+            if let Some(c) = new_arxiv.captures(reference) {
+                println!("new");
+                Some((
+                    format!("https://arxiv.org/abs/{}", c.get(1).unwrap().as_str()),
+                    format!("arXiv:{}", c.get(1).unwrap().as_str()),
+                ))
+            } else if let Some(c) = old_arxiv.captures(reference) {
+                println!("old");
+                Some((
+                    format!("https://arxiv.org/abs/{}", c.get(2).unwrap().as_str()),
+                    format!("{}", c.get(2).unwrap().as_str()),
+                ))
+            } else if let Some(c) = doi.captures(reference) {
+                println!("doi");
+                Some((
+                    format!("https://dx.doi.org/{}", c.get(2).unwrap().as_str()),
+                    format!("doi:{}", c.get(2).unwrap().as_str()),
+                ))
+            } else {
+                println!("none");
+                None
+            }
+        };
+
         // Generate raw HTML
-        let parser = Parser::new_ext(self.0.as_ref(), Options::all());
+        let parser = Parser::new_with_broken_link_callback(
+            self.0.as_ref(),
+            Options::all(),
+            Some(&reference_callback),
+        );
 
         let mut katex = KatexMiddleware::new();
         let parser = parser.filter_map(move |e| katex.map(e));
