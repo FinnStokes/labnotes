@@ -13,27 +13,22 @@ impl<T: AsRef<str>> Render for Markdown<T> {
         let doi = Regex::new(r"^(doi:)?(10[.][0-9.]+/[0-9a-zA-Z._-]+)$").unwrap();
 
         let reference_callback = |reference: &str, _normalized: &str| {
-            println!("{}", reference);
             if let Some(c) = new_arxiv.captures(reference) {
-                println!("new");
                 Some((
                     format!("https://arxiv.org/abs/{}", c.get(1).unwrap().as_str()),
                     format!("arXiv:{}", c.get(1).unwrap().as_str()),
                 ))
             } else if let Some(c) = old_arxiv.captures(reference) {
-                println!("old");
                 Some((
                     format!("https://arxiv.org/abs/{}", c.get(2).unwrap().as_str()),
                     format!("{}", c.get(2).unwrap().as_str()),
                 ))
             } else if let Some(c) = doi.captures(reference) {
-                println!("doi");
                 Some((
                     format!("https://dx.doi.org/{}", c.get(2).unwrap().as_str()),
                     format!("doi:{}", c.get(2).unwrap().as_str()),
                 ))
             } else {
-                println!("none");
                 None
             }
         };

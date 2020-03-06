@@ -10,6 +10,7 @@ use maud::{html, Markup, DOCTYPE};
 use rocket::http::RawStr;
 use rocket::request::{FromParam, Request};
 use rocket::response::{self, Responder};
+use rocket::State;
 
 mod markdown;
 
@@ -57,6 +58,35 @@ impl LabBook {
     }
 }
 
+// In submodule to avoid weird compiler stack overflow
+mod theme {
+    use maud::{html, Markup, Render};
+
+    pub struct Theme {
+        light: bool,
+    }
+
+    impl Theme {
+        pub fn new(light: bool) -> Theme {
+            Theme { light }
+        }
+    }
+
+    impl Render for Theme {
+        fn render(&self) -> Markup {
+            html! {
+                @if self.light {
+                    link rel="stylesheet" type="text/css" href="http://thomasf.github.io/solarized-css/solarized-light.min.css";
+                } @else {
+                    link rel="stylesheet" type="text/css" href="http://thomasf.github.io/solarized-css/solarized-dark.min.css";
+                }
+            }
+        }
+    }
+}
+
+pub use theme::Theme;
+
 pub struct NoteMetadata;
 
 /// A lab note, consisting of a header containing metadata and
@@ -80,10 +110,11 @@ impl Note<'_> {
     }
 
     /// Render the Note to html
-    pub fn render_html(&self) -> Markup {
+    pub fn render_html(&self, theme: &Theme) -> Markup {
         html! {
             (DOCTYPE)
             head {
+                (theme)
                 link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css" integrity="sha384-zB1R0rpPzHqg7Kpt0Aljp8JPLqbXI3bhnPWROx27a9N0Ll6ZP/+DiW/UqRcLbRjq" crossorigin="anonymous";
             }
             body {
@@ -96,7 +127,8 @@ impl Note<'_> {
 impl<'a> Responder<'static> for Note<'a> {
     /// Respond to rocket requests with html rendering of Note
     fn respond_to(self, r: &Request) -> response::Result<'static> {
-        self.render_html().respond_to(r)
+        let theme = r.guard::<State<Theme>>().unwrap();
+        self.render_html(&theme).respond_to(r)
     }
 }
 

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use rocket::{get, routes, State};
 use structopt::StructOpt;
 
-use labnotes::{LabBook, Note, NoteID};
+use labnotes::{LabBook, Note, NoteID, Theme};
 
 #[get("/", format = "html")]
 fn index(book: State<LabBook>) -> Option<Note<'static>> {
@@ -25,6 +25,10 @@ fn note<'a>(id: NoteID<'a>, book: State<LabBook>) -> Option<Note<'a>> {
 struct Args {
     /// Directory that contains the markdown files
     dir: PathBuf,
+
+    /// Use light theme instead of dark theme
+    #[structopt(long)]
+    light: bool,
 }
 
 #[paw::main]
@@ -32,5 +36,6 @@ fn main(args: Args) {
     rocket::ignite()
         .mount("/", routes![index, note])
         .manage(LabBook::new(args.dir))
+        .manage(Theme::new(args.light))
         .launch();
 }
