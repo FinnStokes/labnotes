@@ -1,6 +1,6 @@
 [package]
 name = "labnotes"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Finn Stokes <finn.stokes@gmail.com>"]
 edition = "2018"
 description = "Serve a directory of markdown files as a simple website. Designed for maintaining academic notes."

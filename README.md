@@ -4,7 +4,7 @@ LabNotes is a command-line tool for serving a directory
 of [Markdown](https://daringfireball.net/projects/markdown/)
 files as a simple website. It is designed for the purpose
 of keeping a set of notes for academic research. As such it
-will support simple inclusion of mathematical equations,
+supports simple inclusion of mathematical equations,
 links to [arXiv](https://arxiv.org/)/[DOI](https://dx.doi.org/)
 records, and tables.
 
