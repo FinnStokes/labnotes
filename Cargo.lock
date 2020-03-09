@@ -354,7 +354,7 @@ dependencies = [
 
 [[package]]
 name = "labnotes"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "ammonia 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "katex 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",

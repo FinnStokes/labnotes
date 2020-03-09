@@ -83,7 +83,12 @@ impl KatexMiddleware {
                 if self.tags > 0 {
                     let opts = katex::Opts::builder().display_mode(true).build().unwrap();
                     Some(Event::Html(CowStr::from(
-                        katex::render_with_opts(text.as_ref(), opts).unwrap(),
+                        katex::render_with_opts(text.as_ref(), opts).unwrap_or_else(
+                            |e| match e {
+                                katex::Error::JsExecError(s) => format!("<div class=\"todo\">{}</div>", s),
+                                _ => panic!(e),
+                            }
+                        ),
                     )))
                 } else {
                     Some(Event::Text(text))
