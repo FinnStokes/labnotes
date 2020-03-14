@@ -97,7 +97,12 @@ impl KatexMiddleware {
             Event::Code(code) => {
                 let s = code.as_ref();
                 if let Some(text) = s.strip_prefix("$").and_then(|s| s.strip_suffix("$")) {
-                    Some(Event::Html(CowStr::from(katex::render(text).unwrap())))
+                    Some(Event::Html(CowStr::from(katex::render(text).unwrap_or_else(
+                        |e| match e {
+                        katex::Error::JsExecError(s) => format!("<span class=\"todo\">{}</span>", s),
+                            _ => panic!(e),
+                        }
+                    ))))
                 } else {
                     Some(Event::Code(code))
                 }
