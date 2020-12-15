@@ -4,12 +4,13 @@ version = "0.0.2"
 authors = ["Finn Stokes <finn.stokes@gmail.com>"]
 edition = "2018"
 description = "Serve a directory of markdown files as a simple website. Designed for maintaining academic notes."
+default-run = "labnotes"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 katex = "0.2"
-pulldown-cmark = "0.7"
+pulldown-cmark = "0.8"
 rocket = "0.4"
 structopt = { version = "0.3", features = [ "paw" ] }
 paw = "1.0"

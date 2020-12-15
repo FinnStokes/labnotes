@@ -1,4 +1,4 @@
-#![feature(proc_macro_hygiene, str_strip)]
+#![feature(proc_macro_hygiene)]
 
 use std::borrow::Cow;
 use std::convert::TryFrom;
@@ -109,7 +109,7 @@ impl Note<'_> {
         })
     }
 
-    /// Render the Note to html
+    /// Render the note to html
     pub fn render_html(&self, theme: &Theme) -> Markup {
         html! {
             (DOCTYPE)
@@ -121,6 +121,11 @@ impl Note<'_> {
                 (self.body)
             }
         }
+    }
+
+    /// Render the note to latex
+    pub fn render_tex(&self) -> String {
+        self.body.render_tex()
     }
 }
 
