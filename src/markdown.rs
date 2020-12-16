@@ -12,7 +12,7 @@ impl<T: AsRef<str>> Render for Markdown<T> {
         // Compile regular expressions to match arXiv and DOI references
         let new_arxiv = Regex::new(r"^ar[xX]iv:([0-9]{4}[.][0-9]{4,}(v[0-9]+)?)$").unwrap();
         let old_arxiv = Regex::new(r"^(ar[xX]iv:)?([a-zA-Z.-]+/[0-9]{7}(v[0-9]+)?)$").unwrap();
-        let doi = Regex::new(r"^(doi:)?(10[.][0-9.]+/[0-9a-zA-Z._-]+)$").unwrap();
+        let doi = Regex::new(r"^(doi:)?(10[.][0-9.]+/[0-9a-zA-Z()._-]+)$").unwrap();
 
         let mut reference_callback = |link: pulldown_cmark::BrokenLink| {
             let reference = link.reference;
@@ -120,7 +120,7 @@ impl<T: AsRef<str>> Markdown<T> {
         // Compile regular expressions to match arXiv and DOI references
         let new_arxiv = Regex::new(r"^ar[xX]iv:([0-9]{4}[.][0-9]{4,}(v[0-9]+)?)$").unwrap();
         let old_arxiv = Regex::new(r"^(ar[xX]iv:)?([a-zA-Z.-]+/[0-9]{7}(v[0-9]+)?)$").unwrap();
-        let doi = Regex::new(r"^(doi:)?(10[.][0-9.]+/[0-9a-zA-Z._-]+)$").unwrap();
+        let doi = Regex::new(r"^(doi:)?(10[.][0-9.]+/[0-9a-zA-Z()._-]+)$").unwrap();
 
         let mut reference_callback = |link: pulldown_cmark::BrokenLink| {
             let reference = link.reference;
