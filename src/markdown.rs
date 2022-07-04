@@ -16,17 +16,17 @@ impl<T: AsRef<str>> Render for Markdown<T> {
 
         let mut reference_callback = |link: pulldown_cmark::BrokenLink| {
             let reference = link.reference;
-            if let Some(c) = new_arxiv.captures(reference) {
+            if let Some(c) = new_arxiv.captures(&reference) {
                 Some((
                     format!("https://arxiv.org/abs/{}", c.get(1).unwrap().as_str()),
                     format!("arXiv:{}", c.get(1).unwrap().as_str()),
                 ))
-            } else if let Some(c) = old_arxiv.captures(reference) {
+            } else if let Some(c) = old_arxiv.captures(&reference) {
                 Some((
                     format!("https://arxiv.org/abs/{}", c.get(2).unwrap().as_str()),
                     format!("{}", c.get(2).unwrap().as_str()),
                 ))
-            } else if let Some(c) = doi.captures(reference) {
+            } else if let Some(c) = doi.captures(&reference) {
                 Some((
                     format!("https://dx.doi.org/{}", c.get(2).unwrap().as_str()),
                     format!("doi:{}", c.get(2).unwrap().as_str()),
@@ -89,7 +89,7 @@ impl KatexMiddleware {
                         katex::render_with_opts(text.as_ref(), opts).unwrap_or_else(
                             |e| match e {
                                 katex::Error::JsExecError(s) => format!("<div class=\"todo\">{}</div>", s),
-                                _ => panic!(e),
+                                _ => panic!("{}", e),
                             }
                         ),
                     )))
@@ -103,7 +103,7 @@ impl KatexMiddleware {
                     Some(Event::Html(CowStr::from(katex::render(text).unwrap_or_else(
                         |e| match e {
                         katex::Error::JsExecError(s) => format!("<span class=\"todo\">{}</span>", s),
-                            _ => panic!(e),
+                            _ => panic!("{}", e),
                         }
                     ))))
                 } else {
@@ -124,17 +124,17 @@ impl<T: AsRef<str>> Markdown<T> {
 
         let mut reference_callback = |link: pulldown_cmark::BrokenLink| {
             let reference = link.reference;
-            if let Some(c) = new_arxiv.captures(reference) {
+            if let Some(c) = new_arxiv.captures(&reference) {
                 Some((
                     format!("https://arxiv.org/abs/{}", c.get(1).unwrap().as_str()),
                     format!("arXiv:{}", c.get(1).unwrap().as_str()),
                 ))
-            } else if let Some(c) = old_arxiv.captures(reference) {
+            } else if let Some(c) = old_arxiv.captures(&reference) {
                 Some((
                     format!("https://arxiv.org/abs/{}", c.get(2).unwrap().as_str()),
                     format!("{}", c.get(2).unwrap().as_str()),
                 ))
-            } else if let Some(c) = doi.captures(reference) {
+            } else if let Some(c) = doi.captures(&reference) {
                 Some((
                     format!("https://dx.doi.org/{}", c.get(2).unwrap().as_str()),
                     format!("doi:{}", c.get(2).unwrap().as_str()),
@@ -292,14 +292,15 @@ where
                     self.write("\n\n")
                 }
             }
-            Tag::Heading(level) => {
+            Tag::Heading(level, _, _) => {
+                use pulldown_cmark::HeadingLevel::{H1, H2, H3, H4, H5, H6};
                 let section = match level {
-                    1 => "section*",
-                    2 => "subsection*",
-                    3 => "subsubsection*",
-                    4 => "paragraph",
-                    5 => "subparagraph",
-                    _ => "subsubparagraph"
+                    H1 => "section*",
+                    H2 => "subsection*",
+                    H3 => "subsubsection*",
+                    H4 => "paragraph",
+                    H5 => "subparagraph",
+                    H6 => "subsubparagraph"
                 };
                 if self.end_newline {
                     self.end_newline = false;
@@ -429,7 +430,7 @@ where
         match tag {
             Tag::Paragraph => {
             }
-            Tag::Heading(_level) => {
+            Tag::Heading(_level, _, _) => {
                 self.write("}\n")?;
             }
             Tag::Table(_) => {

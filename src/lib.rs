@@ -72,7 +72,7 @@ mod theme {
         }
     }
 
-    impl Render for Theme {
+    impl Render for &Theme {
         fn render(&self) -> Markup {
             html! {
                 @if self.light {
