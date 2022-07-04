@@ -218,7 +218,8 @@ where
         self.write("\\usepackage[normalem]{ulem}\n")?;
         self.write("\\usepackage{minted}\n")?;
         self.write("\\usepackage{graphicx}\n")?;
-        self.write("\\usepackage{hyperref}\n\n")?;
+        self.write("\\usepackage{hyperref}\n")?;
+        self.write("\\usepackage{amsmath}\n\n")?;
         self.write("\\setcounter{tocdepth}{6}\n")?;
         self.write("\\setcounter{secnumdepth}{6}\n\n")?;
         self.write("\\begin{document}\n")?;
@@ -308,7 +309,10 @@ where
                 }
             }
             Tag::Table(alignments) => {
-                self.write(r"\begin{tabular}{")?;
+                if !self.end_newline {
+                    self.write_newline()?;
+                }
+                self.write("\\begin{center}\n\\begin{tabular}{")?;
                 for alignment in &alignments {
                     match alignment {
                         &Alignment::Center => self.write("c")?,
@@ -347,13 +351,13 @@ where
                         if lang.is_empty() {
                             self.write("\\begin{minted}{text}\n")
                         } else if lang == "math" {
-                            self.write("\\begin{equation}\n")
+                            self.write("\\begin{align}\n")
                         } else {
                             self.write("\\begin{minted}{")?;
                             escape_html(&mut self.writer, lang)?;
                             self.write("}\n")
                         }
-                    }
+                    },
                     CodeBlockKind::Indented => self.write("\\begin{minted}{text}\n"),
                 }
             }
@@ -429,7 +433,7 @@ where
                 self.write("}\n")?;
             }
             Tag::Table(_) => {
-                self.write("\\end{table}\n")?;
+                self.write("\\end{tabular}\n\\end{center}\n")?;
             }
             Tag::TableHead => {
                 self.write("\\hline\n")?;
@@ -452,7 +456,7 @@ where
                     CodeBlockKind::Fenced(info) => {
                         let lang = info.split(' ').next().unwrap();
                         if lang == "math" {
-                            self.write("\\end{equation}\n")?;
+                            self.write("\\end{align}\n")?;
                         } else {
                             self.write("\\end{minted}\n")?;
                         }
