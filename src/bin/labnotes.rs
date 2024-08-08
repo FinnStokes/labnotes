@@ -1,24 +1,23 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 use std::path::PathBuf;
 
-use rocket::{get, routes, State};
-use structopt::StructOpt;
+use clap::Parser;
+use maud::Markup;
+use rocket::{get, launch, routes, State};
 
-use labnotes::{LabBook, Note, NoteID, Theme};
+use labnotes::{LabBook, NoteID, Theme};
 
 #[get("/", format = "html")]
-fn index(book: State<LabBook>) -> Option<Note<'static>> {
-    book.index().ok()
+fn index(book: &State<LabBook>, theme: &State<Theme>) -> Option<Markup> {
+    book.index().ok().map(|note| note.render_html(&theme))
 }
 
 #[get("/<id>", format = "html")]
-fn note<'a>(id: NoteID<'a>, book: State<LabBook>) -> Option<Note<'a>> {
-    book.note(id).ok()
+fn note<'a>(id: NoteID<'a>, book: &State<LabBook>, theme: &State<Theme>) -> Option<Markup> {
+    book.note(id).ok().map(|note| note.render_html(&theme))
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[command(
     name = "labnotes",
     about = "Serves a directory of markdown files as a simple website."
 )]
@@ -32,11 +31,11 @@ struct Args {
     light: bool,
 }
 
-#[paw::main]
-fn main(args: Args) {
-    rocket::ignite()
+#[launch]
+fn rocket() -> _ {
+    let args = Args::parse();
+    rocket::build()
         .mount("/", routes![index, note])
         .manage(LabBook::new(args.dir))
         .manage(Theme::new(args.light))
-        .launch();
 }

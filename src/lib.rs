@@ -7,10 +7,7 @@ use std::fs::read_to_string;
 use std::path::PathBuf;
 
 use maud::{html, Markup, DOCTYPE};
-use rocket::http::RawStr;
-use rocket::request::{FromParam, Request};
-use rocket::response::{self, Responder};
-use rocket::State;
+use rocket::request::FromParam;
 
 mod markdown;
 
@@ -129,14 +126,6 @@ impl Note<'_> {
     }
 }
 
-impl<'a> Responder<'static> for Note<'a> {
-    /// Respond to rocket requests with html rendering of Note
-    fn respond_to(self, r: &Request) -> response::Result<'static> {
-        let theme = r.guard::<State<Theme>>().unwrap();
-        self.render_html(&theme).respond_to(r)
-    }
-}
-
 const ALLOWED_CHARS: &'static [u8] =
     b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
 const MAX_SIZE: usize = 128;
@@ -195,9 +184,9 @@ impl<'a> Into<&'a str> for &'a NoteID<'a> {
 /// Returns an instance of `NoteID` if the path segment is a valid ID.
 /// Otherwise returns the invalid ID as the `Err` value.
 impl<'a> FromParam<'a> for NoteID<'a> {
-    type Error = &'a RawStr;
+    type Error = &'a str;
 
-    fn from_param(param: &'a RawStr) -> std::result::Result<NoteID<'a>, &'a RawStr> {
+    fn from_param(param: &'a str) -> std::result::Result<NoteID<'a>, Self::Error> {
         match NoteID::try_from(param as &str) {
             Ok(id) => Ok(id),
             Err(_) => Err(param),

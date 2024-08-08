@@ -1,11 +1,10 @@
 use maud::{Markup, PreEscaped, Render};
 use pulldown_cmark::{
-    escape::escape_href, escape::escape_html, html, Alignment, CodeBlockKind, CowStr, Event,
-    LinkType, Options, Parser, Tag,
+    html, Alignment, CodeBlockKind, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd,
 };
+use pulldown_cmark_escape::{escape_href, escape_html};
 use regex::Regex;
 use std::collections::HashMap;
-use std::io;
 
 /// Renders a block of Markdown using `pulldown-cmark`.
 pub struct Markdown<T: AsRef<str>>(pub T);
@@ -61,63 +60,34 @@ impl<T: AsRef<str>> Render for Markdown<T> {
     }
 }
 
-struct KatexMiddleware {
-    tags: usize,
-}
+struct KatexMiddleware;
 
 impl KatexMiddleware {
     fn new() -> KatexMiddleware {
-        KatexMiddleware { tags: 0 }
+        KatexMiddleware
     }
 
     fn map<'a>(&'_ mut self, event: Event<'a>) -> Option<Event<'a>> {
         match event {
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(kind))) => {
-                if kind.as_ref() == "math" {
-                    self.tags += 1;
-                    None
-                } else {
-                    Some(Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(kind))))
-                }
+            Event::DisplayMath(text) => {
+                let opts = katex::Opts::builder().display_mode(true).build().unwrap();
+                Some(Event::Html(CowStr::from(
+                    katex::render_with_opts(text.as_ref(), opts).unwrap_or_else(|e| match e {
+                        katex::Error::JsExecError(s) => {
+                            format!("<div class=\"todo\">{}</div>", s)
+                        }
+                        _ => panic!("{}", e),
+                    }),
+                )))
             }
-            Event::End(Tag::CodeBlock(CodeBlockKind::Fenced(kind))) => {
-                if kind.as_ref() == "math" {
-                    self.tags -= 1;
-                    None
-                } else {
-                    Some(Event::End(Tag::CodeBlock(CodeBlockKind::Fenced(kind))))
-                }
-            }
-            Event::Text(text) => {
-                if self.tags > 0 {
-                    let opts = katex::Opts::builder().display_mode(true).build().unwrap();
-                    Some(Event::Html(CowStr::from(
-                        katex::render_with_opts(text.as_ref(), opts).unwrap_or_else(|e| match e {
-                            katex::Error::JsExecError(s) => {
-                                format!("<div class=\"todo\">{}</div>", s)
-                            }
-                            _ => panic!("{}", e),
-                        }),
-                    )))
-                } else {
-                    Some(Event::Text(text))
-                }
-            }
-            Event::Code(code) => {
-                let s = code.as_ref();
-                if let Some(text) = s.strip_prefix("$").and_then(|s| s.strip_suffix("$")) {
-                    Some(Event::Html(CowStr::from(
-                        katex::render(text).unwrap_or_else(|e| match e {
-                            katex::Error::JsExecError(s) => {
-                                format!("<span class=\"todo\">{}</span>", s)
-                            }
-                            _ => panic!("{}", e),
-                        }),
-                    )))
-                } else {
-                    Some(Event::Code(code))
-                }
-            }
+            Event::InlineMath(text) => Some(Event::Html(CowStr::from(
+                katex::render(text.as_ref()).unwrap_or_else(|e| match e {
+                    katex::Error::JsExecError(s) => {
+                        format!("<span class=\"todo\">{}</span>", s)
+                    }
+                    _ => panic!("{}", e),
+                }),
+            ))),
             e => Some(e),
         }
     }
@@ -194,7 +164,7 @@ struct LatexWriter<'a, I, W> {
 impl<'a, I, W> LatexWriter<'a, I, W>
 where
     I: Iterator<Item = Event<'a>>,
-    W: pulldown_cmark::escape::StrWrite,
+    W: pulldown_cmark_escape::StrWrite,
 {
     fn new(iter: I, writer: W) -> Self {
         Self {
@@ -208,14 +178,14 @@ where
     }
 
     /// Writes a new line.
-    fn write_newline(&mut self) -> io::Result<()> {
+    fn write_newline(&mut self) -> Result<(), W::Error> {
         self.end_newline = true;
         self.writer.write_str("\n")
     }
 
     /// Writes a buffer, and tracks whether or not a newline was written.
     #[inline]
-    fn write(&mut self, s: &str) -> io::Result<()> {
+    fn write(&mut self, s: &str) -> Result<(), W::Error> {
         self.writer.write_str(s)?;
 
         if !s.is_empty() {
@@ -224,7 +194,7 @@ where
         Ok(())
     }
 
-    pub fn run(mut self) -> io::Result<()> {
+    pub fn run(mut self) -> Result<(), W::Error> {
         self.write("\\documentclass{article}\n\n")?;
         self.write("\\usepackage[normalem]{ulem}\n")?;
         self.write("\\usepackage{minted}\n")?;
@@ -247,21 +217,29 @@ where
                     self.end_newline = text.ends_with('\n');
                 }
                 Event::Code(text) => {
-                    if let Some(_) = text
-                        .strip_prefix("$")
-                        .and_then(|text| text.strip_suffix("$"))
-                    {
-                        self.write(&text)?
-                    } else {
-                        self.write(r"\mintinline{text}{")?;
-                        self.write(&text)?;
-                        self.write(r"}")?;
-                    }
+                    self.write(r"\mintinline{text}{")?;
+                    self.write(&text)?;
+                    self.write(r"}")?;
+                }
+                Event::InlineMath(text) => {
+                    self.write(r"$")?;
+                    self.write(&text)?;
+                    self.write(r"$")?;
+                }
+                Event::DisplayMath(text) => {
+                    self.write("\\begin{align*}")?;
+                    self.write(&text)?;
+                    self.write("\\end{align*}")?;
                 }
                 Event::Html(html) => {
-                    self.write(r"\begin{verbatim}")?;
+                    self.write("\\begin{verbatim}")?;
                     self.write(&html)?;
-                    self.write(r"\end{verbatim}")?;
+                    self.write("\\end{verbatim}")?;
+                }
+                Event::InlineHtml(text) => {
+                    self.write(r"\mintinline{text}{")?;
+                    self.write(&text)?;
+                    self.write(r"}")?;
                 }
                 Event::SoftBreak => {
                     self.write_newline()?;
@@ -297,7 +275,7 @@ where
     }
 
     /// Writes the start of an HTML tag.
-    fn start_tag(&mut self, tag: Tag<'a>) -> io::Result<()> {
+    fn start_tag(&mut self, tag: Tag<'a>) -> Result<(), W::Error> {
         match tag {
             Tag::Paragraph => {
                 if self.end_newline {
@@ -306,7 +284,7 @@ where
                     self.write("\n\n")
                 }
             }
-            Tag::Heading(level, _, _) => {
+            Tag::Heading { level, .. } => {
                 use pulldown_cmark::HeadingLevel::{H1, H2, H3, H4, H5, H6};
                 let section = match level {
                     H1 => "section*",
@@ -347,7 +325,7 @@ where
                 Ok(())
             }
             Tag::TableCell => Ok(()),
-            Tag::BlockQuote => {
+            Tag::BlockQuote(_) => {
                 if self.end_newline {
                     self.write("\\begin{quotation}\n")
                 } else {
@@ -363,8 +341,6 @@ where
                         let lang = info.split(' ').next().unwrap();
                         if lang.is_empty() {
                             self.write("\\begin{minted}{text}\n")
-                        } else if lang == "math" {
-                            self.write("\\begin{align}\n")
                         } else {
                             self.write("\\begin{minted}{")?;
                             escape_html(&mut self.writer, lang)?;
@@ -408,17 +384,21 @@ where
             Tag::Emphasis => self.write("{\\em "),
             Tag::Strong => self.write("{\\bf "),
             Tag::Strikethrough => self.write("\\sout{"),
-            Tag::Link(LinkType::Email, dest, _title) => {
+            Tag::Link {
+                link_type: LinkType::Email,
+                dest_url: dest,
+                ..
+            } => {
                 self.write("\\href{mailto:")?;
                 escape_href(&mut self.writer, &dest)?;
                 self.write("}{")
             }
-            Tag::Link(_link_type, dest, _title) => {
+            Tag::Link { dest_url: dest, .. } => {
                 self.write("\\href{")?;
                 escape_href(&mut self.writer, &dest)?;
                 self.write("}{")
             }
-            Tag::Image(_link_type, dest, _title) => {
+            Tag::Image { dest_url: dest, .. } => {
                 self.write("\\includegraphics{")?;
                 escape_href(&mut self.writer, &dest)?;
                 self.write("}\n")?;
@@ -435,23 +415,35 @@ where
                 write!(&mut self.writer, "{}", number)?;
                 self.write("]{")
             }
+            Tag::HtmlBlock => {
+                if !self.end_newline {
+                    self.write_newline()?;
+                }
+                self.write("\\begin{verbatim}\n")
+            }
+            Tag::MetadataBlock(_) => {
+                if !self.end_newline {
+                    self.write_newline()?;
+                }
+                self.write("\\begin{comment}\n")
+            }
         }
     }
 
-    fn end_tag(&mut self, tag: Tag) -> io::Result<()> {
+    fn end_tag(&mut self, tag: TagEnd) -> Result<(), W::Error> {
         match tag {
-            Tag::Paragraph => {}
-            Tag::Heading(_level, _, _) => {
+            TagEnd::Paragraph => {}
+            TagEnd::Heading { .. } => {
                 self.write("}\n")?;
             }
-            Tag::Table(_) => {
+            TagEnd::Table => {
                 self.write("\\end{tabular}\n\\end{center}\n")?;
             }
-            Tag::TableHead => {
+            TagEnd::TableHead => {
                 self.write("\\hline\n")?;
             }
-            Tag::TableRow => {}
-            Tag::TableCell => {
+            TagEnd::TableRow => {}
+            TagEnd::TableCell => {
                 self.table_cell_index += 1;
                 if self.table_cell_index == self.table_cells {
                     self.write("\\\\\n")?;
@@ -459,53 +451,49 @@ where
                     self.write(" & ")?;
                 }
             }
-            Tag::BlockQuote => {
+            TagEnd::BlockQuote => {
                 self.write("\\end{quotation}\n")?;
             }
-            Tag::CodeBlock(info) => match info {
-                CodeBlockKind::Fenced(info) => {
-                    let lang = info.split(' ').next().unwrap();
-                    if lang == "math" {
-                        self.write("\\end{align}\n")?;
-                    } else {
-                        self.write("\\end{minted}\n")?;
-                    }
-                }
-                CodeBlockKind::Indented => {
-                    self.write("\\end{minted}\n")?;
-                }
-            },
-            Tag::List(Some(_)) => {
+            TagEnd::CodeBlock => {
+                self.write("\\end{minted}\n")?;
+            }
+            TagEnd::List(true) => {
                 self.write("\\end{enumerate}\n")?;
             }
-            Tag::List(None) => {
+            TagEnd::List(false) => {
                 self.write("\\end{itemize}\n")?;
             }
-            Tag::Item => {
+            TagEnd::Item => {
                 self.write_newline()?;
             }
-            Tag::Emphasis => {
+            TagEnd::Emphasis => {
                 self.write("}")?;
             }
-            Tag::Strong => {
+            TagEnd::Strong => {
                 self.write("}")?;
             }
-            Tag::Strikethrough => {
+            TagEnd::Strikethrough => {
                 self.write("}")?;
             }
-            Tag::Link(_, _, _) => {
+            TagEnd::Link { .. } => {
                 self.write("}")?;
             }
-            Tag::Image(_, _, _) => (), // shouldn't happen, handled in start
-            Tag::FootnoteDefinition(_) => {
+            TagEnd::Image { .. } => (), // shouldn't happen, handled in start
+            TagEnd::FootnoteDefinition => {
                 self.write("}\n")?;
+            }
+            TagEnd::HtmlBlock => {
+                self.write("\\end{verbatim}\n")?;
+            }
+            TagEnd::MetadataBlock(_) => {
+                self.write("\\end{comment}\n")?;
             }
         }
         Ok(())
     }
 
     // run raw text, consuming end tag
-    fn consume_text(&mut self) -> io::Result<()> {
+    fn consume_text(&mut self) -> Result<(), W::Error> {
         let mut nest = 0;
         while let Some(event) = self.iter.next() {
             match event {
@@ -516,7 +504,12 @@ where
                     }
                     nest -= 1;
                 }
-                Event::Html(_) | Event::Code(_) | Event::Text(_) => {}
+                Event::Html(_)
+                | Event::InlineHtml(_)
+                | Event::DisplayMath(_)
+                | Event::InlineMath(_)
+                | Event::Code(_)
+                | Event::Text(_) => {}
                 Event::SoftBreak | Event::HardBreak | Event::Rule => {}
                 Event::FootnoteReference(name) => {
                     let len = self.numbers.len() + 1;
