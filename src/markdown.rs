@@ -320,7 +320,7 @@ where
                     self.end_newline = false;
                     write!(&mut self.writer, "\\{}{{", section)
                 } else {
-                    write!(&mut self.writer, "\n{}{{", section)
+                    write!(&mut self.writer, "\n\\{}{{", section)
                 }
             }
             Tag::Table(alignments) => {
