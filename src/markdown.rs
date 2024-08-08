@@ -1,8 +1,11 @@
 use maud::{Markup, PreEscaped, Render};
-use pulldown_cmark::{html, CodeBlockKind, CowStr, Event, Options, Parser, Tag, Alignment, LinkType, escape::escape_href, escape::escape_html};
+use pulldown_cmark::{
+    escape::escape_href, escape::escape_html, html, Alignment, CodeBlockKind, CowStr, Event,
+    LinkType, Options, Parser, Tag,
+};
 use regex::Regex;
-use std::io;
 use std::collections::HashMap;
+use std::io;
 
 /// Renders a block of Markdown using `pulldown-cmark`.
 pub struct Markdown<T: AsRef<str>>(pub T);
@@ -33,7 +36,10 @@ impl<T: AsRef<str>> Render for Markdown<T> {
                 ))
             } else {
                 None
-            }.map(|(url, label)| (url.into(), label.into()) as (pulldown_cmark::CowStr, pulldown_cmark::CowStr))
+            }
+            .map(|(url, label)| {
+                (url.into(), label.into()) as (pulldown_cmark::CowStr, pulldown_cmark::CowStr)
+            })
         };
 
         // Generate raw HTML
@@ -86,12 +92,12 @@ impl KatexMiddleware {
                 if self.tags > 0 {
                     let opts = katex::Opts::builder().display_mode(true).build().unwrap();
                     Some(Event::Html(CowStr::from(
-                        katex::render_with_opts(text.as_ref(), opts).unwrap_or_else(
-                            |e| match e {
-                                katex::Error::JsExecError(s) => format!("<div class=\"todo\">{}</div>", s),
-                                _ => panic!("{}", e),
+                        katex::render_with_opts(text.as_ref(), opts).unwrap_or_else(|e| match e {
+                            katex::Error::JsExecError(s) => {
+                                format!("<div class=\"todo\">{}</div>", s)
                             }
-                        ),
+                            _ => panic!("{}", e),
+                        }),
                     )))
                 } else {
                     Some(Event::Text(text))
@@ -100,12 +106,14 @@ impl KatexMiddleware {
             Event::Code(code) => {
                 let s = code.as_ref();
                 if let Some(text) = s.strip_prefix("$").and_then(|s| s.strip_suffix("$")) {
-                    Some(Event::Html(CowStr::from(katex::render(text).unwrap_or_else(
-                        |e| match e {
-                        katex::Error::JsExecError(s) => format!("<span class=\"todo\">{}</span>", s),
+                    Some(Event::Html(CowStr::from(
+                        katex::render(text).unwrap_or_else(|e| match e {
+                            katex::Error::JsExecError(s) => {
+                                format!("<span class=\"todo\">{}</span>", s)
+                            }
                             _ => panic!("{}", e),
-                        }
-                    ))))
+                        }),
+                    )))
                 } else {
                     Some(Event::Code(code))
                 }
@@ -141,7 +149,10 @@ impl<T: AsRef<str>> Markdown<T> {
                 ))
             } else {
                 None
-            }.map(|(url, label)| (url.into(), label.into()) as (pulldown_cmark::CowStr, pulldown_cmark::CowStr))
+            }
+            .map(|(url, label)| {
+                (url.into(), label.into()) as (pulldown_cmark::CowStr, pulldown_cmark::CowStr)
+            })
         };
 
         // Generate raw HTML
@@ -236,7 +247,10 @@ where
                     self.end_newline = text.ends_with('\n');
                 }
                 Event::Code(text) => {
-                    if let Some(_) = text.strip_prefix("$").and_then(|text| text.strip_suffix("$")) {
+                    if let Some(_) = text
+                        .strip_prefix("$")
+                        .and_then(|text| text.strip_suffix("$"))
+                    {
                         self.write(&text)?
                     } else {
                         self.write(r"\mintinline{text}{")?;
@@ -300,7 +314,7 @@ where
                     H3 => "subsubsection*",
                     H4 => "paragraph",
                     H5 => "subparagraph",
-                    H6 => "subsubparagraph"
+                    H6 => "subsubparagraph",
                 };
                 if self.end_newline {
                     self.end_newline = false;
@@ -332,9 +346,7 @@ where
                 self.table_cell_index = 0;
                 Ok(())
             }
-            Tag::TableCell => {
-                Ok(())
-            }
+            Tag::TableCell => Ok(()),
             Tag::BlockQuote => {
                 if self.end_newline {
                     self.write("\\begin{quotation}\n")
@@ -358,7 +370,7 @@ where
                             escape_html(&mut self.writer, lang)?;
                             self.write("}\n")
                         }
-                    },
+                    }
                     CodeBlockKind::Indented => self.write("\\begin{minted}{text}\n"),
                 }
             }
@@ -428,8 +440,7 @@ where
 
     fn end_tag(&mut self, tag: Tag) -> io::Result<()> {
         match tag {
-            Tag::Paragraph => {
-            }
+            Tag::Paragraph => {}
             Tag::Heading(_level, _, _) => {
                 self.write("}\n")?;
             }
@@ -439,8 +450,7 @@ where
             Tag::TableHead => {
                 self.write("\\hline\n")?;
             }
-            Tag::TableRow => {
-            }
+            Tag::TableRow => {}
             Tag::TableCell => {
                 self.table_cell_index += 1;
                 if self.table_cell_index == self.table_cells {
@@ -452,21 +462,19 @@ where
             Tag::BlockQuote => {
                 self.write("\\end{quotation}\n")?;
             }
-            Tag::CodeBlock(info) => {
-                match info {
-                    CodeBlockKind::Fenced(info) => {
-                        let lang = info.split(' ').next().unwrap();
-                        if lang == "math" {
-                            self.write("\\end{align}\n")?;
-                        } else {
-                            self.write("\\end{minted}\n")?;
-                        }
-                    }
-                    CodeBlockKind::Indented => {
+            Tag::CodeBlock(info) => match info {
+                CodeBlockKind::Fenced(info) => {
+                    let lang = info.split(' ').next().unwrap();
+                    if lang == "math" {
+                        self.write("\\end{align}\n")?;
+                    } else {
                         self.write("\\end{minted}\n")?;
-                    },
+                    }
                 }
-            }
+                CodeBlockKind::Indented => {
+                    self.write("\\end{minted}\n")?;
+                }
+            },
             Tag::List(Some(_)) => {
                 self.write("\\end{enumerate}\n")?;
             }

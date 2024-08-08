@@ -23,9 +23,9 @@ fn main(args: Args) {
         Ok(note) => {
             let tex = note.render_tex();
             print!("{}", tex);
-        },
+        }
         Err(_) => {
             eprintln!("Error loading note!");
-        },
+        }
     };
 }

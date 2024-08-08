@@ -24,7 +24,7 @@ fn note<'a>(id: NoteID<'a>, book: State<LabBook>) -> Option<Note<'a>> {
 )]
 struct Args {
     /// Directory that contains the markdown files
-    #[structopt(default_value=".")]
+    #[structopt(default_value = ".")]
     dir: PathBuf,
 
     /// Use light theme instead of dark theme
