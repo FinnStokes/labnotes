@@ -200,6 +200,7 @@ where
         self.write("\\usepackage{minted}\n")?;
         self.write("\\usepackage{graphicx}\n")?;
         self.write("\\usepackage{hyperref}\n")?;
+        self.write("\\usepackage[a4paper]{geometry}\n")?;
         self.write("\\usepackage{amsmath}\n\n")?;
         self.write("\\setcounter{tocdepth}{6}\n")?;
         self.write("\\setcounter{secnumdepth}{6}\n\n")?;
