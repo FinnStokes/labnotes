@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use maud::Markup;
-use rocket::{get, launch, routes, State};
+use rocket::{fs::FileServer, get, launch, routes, State};
 
 use labnotes::{LabBook, NoteID, Theme};
 
@@ -34,8 +34,15 @@ struct Args {
 #[launch]
 fn rocket() -> _ {
     let args = Args::parse();
-    rocket::build()
+    let staticdir = args.dir.join("static");
+    let rocket = rocket::build()
         .mount("/", routes![index, note])
         .manage(LabBook::new(args.dir))
-        .manage(Theme::new(args.light))
+        .manage(Theme::new(args.light));
+
+    if staticdir.exists() {
+        rocket.mount("/static", FileServer::from(staticdir))
+    } else {
+        rocket
+    }
 }
